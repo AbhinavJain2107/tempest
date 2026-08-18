@@ -1,0 +1,43 @@
+{
+  "name": "tempest-load",
+  "version": "0.1.0",
+  "description": "High-performance LLM & Streaming API Load Tester with Traffic Replay & CI/CD Performance Regression Checks",
+  "type": "module",
+  "bin": {
+    "tempest": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "load-testing",
+    "llm",
+    "ai",
+    "streaming",
+    "sse",
+    "ttft",
+    "tokens-per-second",
+    "benchmark",
+    "regression",
+    "har-replay"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5",
+    "commander": "^13.1.0",
+    "string-width": "^8.2.2",
+    "undici": "^7.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}
