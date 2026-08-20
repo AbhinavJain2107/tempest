@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import chalk from "chalk";
 import { Command } from "commander";
 import { LoadRunner } from "../engine/runner.js";
+import { formatFaceoffTable, runModelFaceoff } from "../features/faceoff.js";
+import { formatRampTable, runRampTest } from "../features/ramp.js";
 import { formatReportTable } from "../metrics/collector.js";
 import {
   compareWithBaseline,
@@ -35,7 +37,7 @@ export function createCLI(): Command {
   program
     .name("tempest")
     .description("⚡ High-performance LLM & Streaming API Load Tester")
-    .version("0.2.0")
+    .version("0.3.0")
     .addHelpText("beforeAll", banner)
     .option("-j, --json-out <path>", "File path to save JSON report")
     .option("--save-baseline <path>", "Save results as baseline JSON for CI/CD comparisons")
@@ -92,6 +94,50 @@ export function createCLI(): Command {
       console.log(formatReportTable(report));
     });
 
+  // Subcommand: ramp (Auto-Breaking Point Detector)
+  program
+    .command("ramp")
+    .description("Automatically ramp up concurrency to find server saturation & breaking point")
+    .option("-u, --target <url>", "Target endpoint URL", "http://localhost:3000/")
+    .option("--start <number>", "Starting concurrent users", "10")
+    .option("--max <number>", "Maximum concurrent users to test", "500")
+    .option("--step <number>", "Step size of users to add each stage", "25")
+    .option("--duration <number>", "Duration per step in seconds", "3")
+    .option("-s, --stream", "Enable SSE streaming mode", false)
+    .action(async (options) => {
+      const report = await runRampTest(
+        options.target,
+        parseInt(options.start, 10),
+        parseInt(options.max, 10),
+        parseInt(options.step, 10),
+        parseInt(options.duration, 10),
+        options.stream
+      );
+
+      console.log(formatRampTable(report));
+    });
+
+  // Subcommand: faceoff (Model Shootout)
+  program
+    .command("faceoff")
+    .description("Compare multiple LLM endpoints/models head-to-head in a shootout")
+    .option("-c, --concurrency <number>", "Concurrency per contender", "10")
+    .option("-n, --requests <number>", "Total requests per contender", "30")
+    .action(async (options) => {
+      const contenders = [
+        { name: "Local Ollama Llama 3", url: "http://localhost:11434/v1/chat/completions", model: "llama3" },
+        { name: "Local Fast Web API", url: "http://localhost:3000/", model: "default" },
+      ];
+
+      const board = await runModelFaceoff(
+        contenders,
+        parseInt(options.concurrency, 10),
+        parseInt(options.requests, 10)
+      );
+
+      console.log(formatFaceoffTable(board));
+    });
+
   // Subcommand: init (Create config file)
   program
     .command("init")
@@ -121,7 +167,7 @@ export function createCLI(): Command {
     .option("--rps <number>", "Rate limit in requests/sec (0 = max speed)", "0")
     .option("-s, --stream", "Enable SSE streaming mode (default)")
     .option("--no-stream", "Disable streaming (standard HTTP mode)")
-    .option("-m, --model <name>", "Model identifier name", "llama3")
+    .option("-m, --model <name>", "Model identifier name (gpt-4o, claude-3-5-sonnet, llama3)", "llama3")
     .option("-a, --auth <token>", "Authorization header (e.g. 'Bearer <token>')")
     .option("--prompt-tokens <tokens...>", "List of prompt token lengths to alternate", ["50", "200", "500"])
     .option("--body <template>", "Custom JSON body template with {PROMPT} placeholder")

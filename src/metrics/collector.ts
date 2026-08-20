@@ -1,16 +1,21 @@
 import chalk from "chalk";
+import { calculateCostEstimate } from "../features/cost.js";
+import { evaluateOutputIntegrity } from "../features/integrity.js";
 import type { PercentileStats, RequestResult, SummaryReport } from "../types/index.js";
 
 export class MetricsCollector {
   private targetUrl: string;
+  private modelName: string;
   private startTime: number;
   private results: RequestResult[] = [];
   private statusCodes: Record<number, number> = {};
   private errorCounts: Record<string, number> = {};
   private totalTokens = 0;
+  private totalPromptTokens = 0;
 
-  constructor(targetUrl: string) {
+  constructor(targetUrl: string, modelName: string = "llama3") {
     this.targetUrl = targetUrl;
+    this.modelName = modelName;
     this.startTime = performance.now();
   }
 
@@ -18,6 +23,7 @@ export class MetricsCollector {
     this.results.push(res);
     this.statusCodes[res.statusCode] = (this.statusCodes[res.statusCode] || 0) + 1;
     this.totalTokens += res.tokenCount;
+    this.totalPromptTokens += res.promptTokens || 0;
 
     if (res.error) {
       this.errorCounts[res.error] = (this.errorCounts[res.error] || 0) + 1;
@@ -64,9 +70,21 @@ export class MetricsCollector {
         ? streamTpsList.reduce((a, b) => a + b, 0) / streamTpsList.length
         : 0;
 
+    // Feature 1: Cost Estimation
+    const cost = calculateCostEstimate(
+      this.modelName,
+      this.totalPromptTokens,
+      this.totalTokens,
+      durationSec
+    );
+
+    // Feature 2: Output Integrity
+    const integrity = evaluateOutputIntegrity(this.results);
+
     return {
       timestamp: new Date().toISOString(),
       targetUrl: this.targetUrl,
+      model: this.modelName,
       totalRequests,
       successCount,
       errorCount,
@@ -81,6 +99,8 @@ export class MetricsCollector {
       ttft: calculatePercentiles(ttfts),
       itl: calculatePercentiles(itls),
       errors: Object.keys(this.errorCounts).length > 0 ? this.errorCounts : undefined,
+      cost,
+      integrity,
     };
   }
 }
@@ -159,6 +179,33 @@ export function formatReportTable(report: SummaryReport): string {
   output += row("Total Latency", report.latency);
 
   output += chalk.gray("----------------------------------------------------------------------------------------\n");
+
+  // Feature 1: AI Cost & Cloud Infrastructure Projection Box
+  if (report.cost && (report.totalTokens > 0 || report.aggregateTps > 0)) {
+    output += chalk.bold.yellow(" 💰 AI COST & CLOUD BUDGET PROJECTION:\n");
+    output += `    • Model / Provider:       ${chalk.bold(report.cost.modelName)} (${report.cost.provider})\n`;
+    output += `    • This Test Run Cost:     ${chalk.bold.green("$" + report.cost.runCostUSD.toFixed(4))}\n`;
+    output += `    • Projected Monthly Cost: ${chalk.bold.yellow("$" + report.cost.projectedMonthlyUSD.toLocaleString() + " / month")} (at continuous traffic)\n`;
+    output += `    • GPU Recommendation:     ${chalk.cyan(report.cost.gpuRecommendation)}\n`;
+    output += chalk.gray("----------------------------------------------------------------------------------------\n");
+  }
+
+  // Feature 2: AI Output Integrity & Health Box
+  if (report.integrity && report.totalRequests > 0) {
+    let healthColor = chalk.bold.green;
+    if (report.integrity.healthStatus === "DEGRADED") healthColor = chalk.bold.yellow;
+    if (report.integrity.healthStatus === "CRITICAL") healthColor = chalk.bold.red;
+
+    output += chalk.bold.magenta(" 🧠 AI OUTPUT INTEGRITY & HEALTH:\n");
+    output += `    • Stream Health Score:    ${healthColor(report.integrity.integrityScorePct + "% [" + report.integrity.healthStatus + "]")}\n`;
+    output += `    • Avg Tokens / Stream:    ${chalk.bold(report.integrity.avgTokensPerStream)} tokens\n`;
+    if (report.integrity.warnings.length > 0) {
+      for (const w of report.integrity.warnings) {
+        output += `    ${chalk.red(w)}\n`;
+      }
+    }
+    output += chalk.gray("----------------------------------------------------------------------------------------\n");
+  }
 
   if (Object.keys(report.statusCodes).length > 0) {
     const codes = Object.entries(report.statusCodes)

@@ -1,3 +1,6 @@
+import type { CostEstimate } from "../features/cost.js";
+import type { IntegrityReport } from "../features/integrity.js";
+
 export interface EngineConfig {
   targetUrl: string;
   method?: string;
@@ -50,6 +53,7 @@ export interface PercentileStats {
 export interface SummaryReport {
   timestamp: string;
   targetUrl: string;
+  model?: string;
   totalRequests: number;
   successCount: number;
   errorCount: number;
@@ -64,6 +68,8 @@ export interface SummaryReport {
   ttft: PercentileStats;
   itl: PercentileStats;
   errors?: Record<string, number>;
+  cost?: CostEstimate;
+  integrity?: IntegrityReport;
 }
 
 export interface MetricDiff {

@@ -1,6 +1,6 @@
 {
   "name": "tempest-load",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "High-performance LLM & Streaming API Load Tester with Traffic Replay & CI/CD Performance Regression Checks",
   "type": "module",
   "bin": {
@@ -38,7 +38,10 @@
     "tokens-per-second",
     "benchmark",
     "regression",
-    "har-replay"
+    "har-replay",
+    "cost-estimator",
+    "model-faceoff",
+    "breaking-point"
   ],
   "author": "Abhinav Jain",
   "license": "MIT",

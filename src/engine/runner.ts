@@ -10,7 +10,7 @@ export class LoadRunner {
   constructor(config: EngineConfig) {
     this.config = config;
     this.client = new HttpClient();
-    this.collector = new MetricsCollector(config.targetUrl);
+    this.collector = new MetricsCollector(config.targetUrl, config.model || "llama3");
   }
 
   public async run(
@@ -20,7 +20,7 @@ export class LoadRunner {
     const concurrency = Math.max(1, this.config.concurrency || 10);
     const totalRequests = this.config.totalRequests || 0;
     const durationMs = this.config.durationMs || 0;
-    const timeoutMs = this.config.timeoutMs || 60_000;
+    const timeoutMs = this.config.timeoutMs || 90_000;
     const rps = this.config.rps || 0;
 
     let completed = 0;
@@ -28,7 +28,6 @@ export class LoadRunner {
     let isStopped = false;
     const startTime = performance.now();
 
-    // Timer for duration-based tests
     let durationTimer: NodeJS.Timeout | undefined;
     if (durationMs > 0) {
       durationTimer = setTimeout(() => {
@@ -36,7 +35,6 @@ export class LoadRunner {
       }, durationMs);
     }
 
-    // Rate limiter interval
     const intervalMs = rps > 0 ? 1000 / rps : 0;
     let lastDispatchTime = performance.now();
 
@@ -48,7 +46,6 @@ export class LoadRunner {
 
         const currentIter = dispatched++;
 
-        // Rate limiting
         if (intervalMs > 0) {
           const now = performance.now();
           const elapsed = now - lastDispatchTime;
@@ -83,7 +80,6 @@ export class LoadRunner {
       }
     };
 
-    // Run workers concurrently
     const workers = Array.from({ length: concurrency }, () => worker());
     await Promise.all(workers);
 

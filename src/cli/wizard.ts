@@ -1,6 +1,8 @@
 import * as p from "@clack/prompts";
 import chalk from "chalk";
 import { LoadRunner } from "../engine/runner.js";
+import { formatFaceoffTable, runModelFaceoff } from "../features/faceoff.js";
+import { formatRampTable, runRampTest } from "../features/ramp.js";
 import { formatReportTable } from "../metrics/collector.js";
 import { createLLMRequestPayload } from "../scenarios/llm.js";
 import type { EngineConfig } from "../types/index.js";
@@ -12,6 +14,62 @@ export async function runInteractiveWizard(): Promise<void> {
 
   const detected = await detectActiveServices();
 
+  const mainAction = await p.select({
+    message: "What would you like to run?",
+    options: [
+      { value: "bench", label: "🚀 Standard Load Test", hint: "Test concurrency against a local/cloud target" },
+      { value: "ramp", label: "📈 Auto-Breaking Point Ramp Test", hint: "Find maximum capacity and saturation limit" },
+      { value: "faceoff", label: "⚔️ Model Shootout / Face-Off", hint: "Compare multiple LLM models/endpoints head-to-head" },
+    ],
+  });
+
+  if (p.isCancel(mainAction)) {
+    p.cancel("Operation cancelled.");
+    process.exit(0);
+  }
+
+  // Action: Ramp Test
+  if (mainAction === "ramp") {
+    let target = "http://localhost:3000/";
+    if (detected.length > 0) {
+      target = detected[0].url;
+    }
+
+    const inputTarget = await p.text({
+      message: "Target URL to find saturation breaking point for:",
+      initialValue: target,
+      validate: (v) => (v.startsWith("http://") || v.startsWith("https://") ? undefined : "Enter a valid URL"),
+    });
+
+    if (p.isCancel(inputTarget)) {
+      p.cancel("Operation cancelled.");
+      process.exit(0);
+    }
+
+    const report = await runRampTest(String(inputTarget), 10, 500, 25, 3, false);
+    console.log(formatRampTable(report));
+    p.outro(chalk.bold.green("✨ Saturation ramp test complete!"));
+    return;
+  }
+
+  // Action: Face-Off
+  if (mainAction === "faceoff") {
+    const contenders = [
+      { name: "Local Ollama Llama 3", url: "http://localhost:11434/v1/chat/completions", model: "llama3" },
+      { name: "Local Fast Server", url: "http://localhost:3000/", model: "default" },
+    ];
+
+    const s = p.spinner();
+    s.start("Running Model Shootout across contenders...");
+    const leaderboard = await runModelFaceoff(contenders, 10, 20);
+    s.stop("Shootout finished!");
+
+    console.log(formatFaceoffTable(leaderboard));
+    p.outro(chalk.bold.green("✨ Model Face-Off complete!"));
+    return;
+  }
+
+  // Standard Benchmark Flow
   const targetChoices: Array<{ value: string; label: string; hint?: string }> = [];
 
   for (const s of detected) {
@@ -57,7 +115,6 @@ export async function runInteractiveWizard(): Promise<void> {
     finalTargetUrl = String(customInput);
   }
 
-  // Choose stream vs standard
   const modeChoice = await p.select({
     message: "Choose test mode:",
     options: [
@@ -73,7 +130,6 @@ export async function runInteractiveWizard(): Promise<void> {
 
   const isStream = modeChoice === "stream";
 
-  // Select concurrency & user tier
   const tierChoice = await p.select({
     message: "Select load concurrency tier:",
     options: [
