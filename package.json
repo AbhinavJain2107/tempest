@@ -1,6 +1,6 @@
 {
   "name": "tempest-load",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "High-performance LLM & Streaming API Load Tester with Traffic Replay & CI/CD Performance Regression Checks",
   "type": "module",
   "bin": {
@@ -14,7 +14,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && chmod +x dist/index.js",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "prepublishOnly": "pnpm build && pnpm test"
