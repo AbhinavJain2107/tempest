@@ -47,6 +47,7 @@ export async function runRampTest(
       durationMs: stepDurationSec * 1000,
       stream: isStream,
       model: "llama3",
+      timeoutMs: 15_000,
     };
 
     process.stdout.write(`\r⏳ Testing ${chalk.bold.yellow(users)} concurrent users... `);
@@ -62,7 +63,7 @@ export async function runRampTest(
       baselineP95 = p95;
     }
 
-    if (rps > maxRps && errorPct === 0) {
+    if (rps > maxRps && errorPct < 5) {
       maxRps = rps;
       optimalConcurrency = users;
     }
@@ -76,14 +77,14 @@ export async function runRampTest(
       durationSec: report.durationSec,
     });
 
-    // Check for breaking point (latency spike > 250% of baseline OR error rate > 3%)
-    if (baselineP95 > 0 && p95 > baselineP95 * 2.8) {
+    // Check for breaking point (latency spike > 300% of baseline OR error rate > 10%)
+    if (baselineP95 > 0 && p95 > baselineP95 * 3.0) {
       breakingConcurrency = users;
-      breakingReason = `Latency spiked by +${Math.round(((p95 - baselineP95) / baselineP95) * 100)}% (${baselineP95}ms -> ${p95}ms)`;
+      breakingReason = `Latency spiked by +${Math.round(((p95 - baselineP95) / baselineP95) * 100)}% (${baselineP95.toFixed(1)}ms -> ${p95.toFixed(1)}ms)`;
       break;
     }
 
-    if (errorPct > 3.0) {
+    if (errorPct > 10.0) {
       breakingConcurrency = users;
       breakingReason = `Error rate spiked to ${errorPct}% (Server dropped connections)`;
       break;
