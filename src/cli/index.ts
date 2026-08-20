@@ -25,6 +25,8 @@ ${chalk.bold.cyan("║")}     ${chalk.bold.yellow("██║   █████�
 ${chalk.bold.cyan("║")}     ${chalk.bold.yellow("╚═╝   ╚══════╝╚═╝     ╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝")}          ${chalk.bold.cyan("║")}
 ${chalk.bold.cyan("║")}      ${chalk.bold.white("High-Performance LLM & Streaming API Load & Regression Tester")}   ${chalk.bold.cyan("║")}
 ${chalk.bold.cyan("╚══════════════════════════════════════════════════════════════════════╝")}
+${chalk.gray("⚠️  DISCLAIMER: For authorized performance testing only. Users are solely")}
+${chalk.gray("   responsible for target authorization and any third-party API/cloud costs.")}
 `;
 
 export function createCLI(): Command {
@@ -41,7 +43,6 @@ export function createCLI(): Command {
     .option("--fail-on <rules...>", "Fail conditions, e.g. 'p99_ttft > +15%' or 'error_rate > 1%'")
     .option("--markdown-out <path>", "File path to write GitHub PR Markdown diff report")
     .action(async () => {
-      // Default: Run interactive wizard when no subcommands or args given
       await runInteractiveWizard();
     });
 
