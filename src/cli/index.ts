@@ -48,7 +48,8 @@ export function createCLI(): Command {
     .option("-n, --requests <number>", "Total number of requests", "50")
     .option("-d, --duration <string>", "Test duration (e.g. 30s, 2m)")
     .option("--rps <number>", "Rate limit in requests/sec (0 = max speed)", "0")
-    .option("-s, --stream", "Enable SSE streaming mode", true)
+    .option("-s, --stream", "Enable SSE streaming mode (default)")
+    .option("--no-stream", "Disable streaming (standard HTTP POST mode)")
     .option("-m, --model <name>", "Model identifier name", "llama3")
     .option("-a, --auth <token>", "Authorization header (e.g. 'Bearer <token>')")
     .option("--prompt-tokens <tokens...>", "List of prompt token lengths to alternate", ["50", "200", "500"])
@@ -63,13 +64,15 @@ export function createCLI(): Command {
 
       const promptLengths = (options.promptTokens || []).map((t: string) => parseInt(t, 10));
 
+      const isStream = options.stream !== false;
+
       const config: EngineConfig = {
         targetUrl: options.target,
         concurrency: parseInt(options.concurrency, 10),
         totalRequests: durationMs ? undefined : parseInt(options.requests, 10),
         durationMs,
         rps: parseInt(options.rps, 10),
-        stream: options.stream !== false,
+        stream: isStream,
         model: options.model,
         authHeader: options.auth,
         promptLengths,
