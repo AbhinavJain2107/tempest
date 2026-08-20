@@ -12,6 +12,8 @@ import {
 import { parseHARFile } from "../scenarios/har.js";
 import { createLLMRequestPayload } from "../scenarios/llm.js";
 import type { EngineConfig } from "../types/index.js";
+import { detectActiveServices } from "../utils/detector.js";
+import { runInteractiveWizard } from "./wizard.js";
 
 const banner = `
 ${chalk.bold.cyan("╔══════════════════════════════════════════════════════════════════════╗")}
@@ -31,25 +33,93 @@ export function createCLI(): Command {
   program
     .name("tempest")
     .description("⚡ High-performance LLM & Streaming API Load Tester")
-    .version("0.1.3")
+    .version("0.2.0")
     .addHelpText("beforeAll", banner)
     .option("-j, --json-out <path>", "File path to save JSON report")
     .option("--save-baseline <path>", "Save results as baseline JSON for CI/CD comparisons")
     .option("--baseline <path>", "Compare results against this baseline JSON")
     .option("--fail-on <rules...>", "Fail conditions, e.g. 'p99_ttft > +15%' or 'error_rate > 1%'")
-    .option("--markdown-out <path>", "File path to write GitHub PR Markdown diff report");
+    .option("--markdown-out <path>", "File path to write GitHub PR Markdown diff report")
+    .action(async () => {
+      // Default: Run interactive wizard when no subcommands or args given
+      await runInteractiveWizard();
+    });
+
+  // Subcommand: start (One-command Auto-Detect)
+  program
+    .command("start")
+    .description("Zero-config auto-detect running local server and start benchmark")
+    .option("-c, --concurrency <number>", "Number of concurrent users", "50")
+    .option("-n, --requests <number>", "Total number of requests", "200")
+    .action(async (options) => {
+      console.log(chalk.bold.cyan("\n🔍 Scanning for active local servers..."));
+      const detected = await detectActiveServices();
+
+      let targetUrl = "http://localhost:3000/";
+      let isStream = false;
+
+      if (detected.length > 0) {
+        const top = detected[0];
+        targetUrl = top.url;
+        isStream = top.isStream;
+        console.log(chalk.green(`✅ Auto-detected active ${top.name} on ${top.url}`));
+      } else {
+        console.log(chalk.yellow(`ℹ️ No open ports detected, defaulting to ${targetUrl}`));
+      }
+
+      const concurrency = parseInt(options.concurrency, 10);
+      const totalRequests = parseInt(options.requests, 10);
+
+      console.log(chalk.bold(`🚀 Launching load test: ${concurrency} users | ${totalRequests} requests against ${targetUrl}...\n`));
+
+      const config: EngineConfig = {
+        targetUrl,
+        concurrency,
+        totalRequests,
+        stream: isStream,
+        model: "llama3",
+      };
+
+      const runner = new LoadRunner(config);
+      const report = await runner.run(
+        (iter) => createLLMRequestPayload(config, iter),
+        (completed, total, liveRps) => {
+          process.stdout.write(`\rProgress: [${completed}/${total}] | Live RPS: ${liveRps}`);
+        }
+      );
+
+      console.log(formatReportTable(report));
+    });
+
+  // Subcommand: init (Create config file)
+  program
+    .command("init")
+    .description("Create a tempest.config.json in the current directory")
+    .action(async () => {
+      const sampleConfig = {
+        target: "http://localhost:3000/",
+        concurrency: 50,
+        requests: 250,
+        stream: false,
+        failOn: ["p99_ttft > +15%", "error_rate > 0%"],
+      };
+
+      await fs.writeFile("tempest.config.json", JSON.stringify(sampleConfig, null, 2), "utf-8");
+      console.log(chalk.bold.green("\n✨ Created tempest.config.json!"));
+      console.log(chalk.gray("You can now customize it and run tempest benchmarks with your settings."));
+    });
 
   // Subcommand: bench
   program
     .command("bench")
     .description("Benchmark an LLM or streaming API endpoint")
     .option("-u, --target <url>", "Target endpoint URL", "http://localhost:11434/v1/chat/completions")
-    .option("-c, --concurrency <number>", "Number of concurrent workers", "10")
+    .option("-c, --concurrency <number>", "Number of concurrent workers (supports 500, 1000+)", "10")
     .option("-n, --requests <number>", "Total number of requests", "50")
     .option("-d, --duration <string>", "Test duration (e.g. 30s, 2m)")
     .option("--rps <number>", "Rate limit in requests/sec (0 = max speed)", "0")
     .option("-s, --stream", "Enable SSE streaming mode (default)")
-    .option("--no-stream", "Disable streaming (standard HTTP POST mode)")
+    .option("--no-stream", "Disable streaming (standard HTTP mode)")
     .option("-m, --model <name>", "Model identifier name", "llama3")
     .option("-a, --auth <token>", "Authorization header (e.g. 'Bearer <token>')")
     .option("--prompt-tokens <tokens...>", "List of prompt token lengths to alternate", ["50", "200", "500"])
@@ -63,7 +133,6 @@ export function createCLI(): Command {
       }
 
       const promptLengths = (options.promptTokens || []).map((t: string) => parseInt(t, 10));
-
       const isStream = options.stream !== false;
 
       const config: EngineConfig = {
@@ -133,7 +202,7 @@ export function createCLI(): Command {
     .command("replay")
     .description("Replay recorded browser traffic (.har file) under concurrent load")
     .requiredOption("-f, --har <path>", "Path to the .har file")
-    .option("-c, --concurrency <number>", "Number of concurrent virtual users", "10")
+    .option("-c, --concurrency <number>", "Number of concurrent virtual users (supports 500, 1000+)", "10")
     .option("-n, --requests <number>", "Total requests (defaults to length of HAR)")
     .option("-d, --duration <string>", "Test duration (e.g. 30s, 2m)")
     .option("--rps <number>", "Rate limit in requests/sec", "0")

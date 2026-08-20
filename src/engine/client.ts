@@ -6,9 +6,9 @@ export class HttpClient {
 
   constructor() {
     this.dispatcher = new Agent({
-      keepAliveTimeout: 60_000,
+      keepAliveTimeout: 90_000,
       keepAliveMaxTimeout: 600_000,
-      connections: 500,
+      connections: 10_000, // Scaled for 1,000+ concurrent virtual users
       pipelining: 1,
       connect: {
         rejectUnauthorized: false, // For local self-signed dev LLMs
@@ -18,7 +18,7 @@ export class HttpClient {
 
   public async executeStream(
     payload: RequestPayload,
-    timeoutMs: number = 60_000
+    timeoutMs: number = 90_000
   ): Promise<RequestResult> {
     const startTime = performance.now();
     const itlsMs: number[] = [];
@@ -137,7 +137,7 @@ export class HttpClient {
 
   public async executeStandard(
     payload: RequestPayload,
-    timeoutMs: number = 60_000
+    timeoutMs: number = 90_000
   ): Promise<RequestResult> {
     const startTime = performance.now();
     const headers: Record<string, string> = {
