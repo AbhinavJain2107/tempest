@@ -30,6 +30,16 @@ Traditional load testing tools (like JMeter or ApacheBench) only measure static 
 
 ---
 
+## ⚠️ Responsible Use & Disclaimer
+
+> **IMPORTANT:** Tempest is intended strictly for authorized benchmarking, development profiling, and performance testing of systems you own or have explicit permission to test.
+
+1. **Authorized Testing Only:** Do not perform load testing against third-party endpoints or infrastructure without authorization. Unauthorized high-volume requests may violate Terms of Service and local laws regarding Denial-of-Service (DoS).
+2. **Third-Party API & Cloud Costs:** When benchmarking paid cloud endpoints (e.g. OpenAI, Anthropic, AWS, Vercel, Supabase), high-throughput load tests will consume tokens, bandwidth, and compute units. You are solely responsible for any costs incurred.
+3. **Limitation of Liability:** The maintainers and contributors of this project assume no liability and are not responsible for any misuse, server downtime, data loss, or financial expenses resulting from the use of this software.
+
+---
+
 ## 🚀 Instant Usage (Zero Install)
 
 ### 1. Interactive Wizard Mode (Easiest)
