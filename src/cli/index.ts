@@ -31,7 +31,7 @@ export function createCLI(): Command {
   program
     .name("tempest")
     .description("⚡ High-performance LLM & Streaming API Load Tester")
-    .version("0.1.2")
+    .version("0.1.3")
     .addHelpText("beforeAll", banner)
     .option("-j, --json-out <path>", "File path to save JSON report")
     .option("--save-baseline <path>", "Save results as baseline JSON for CI/CD comparisons")
